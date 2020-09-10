@@ -1,0 +1,68 @@
+import pandas as pd
+import numpy as np
+#находим час пик для каждой зоны утром
+#вычисляем наиболее загруженные временные интвервалы для каждой зоны и для каждого дня
+#если временной интервал часто бывает наиболее загруженным, то он попадает в список "час пик"
+
+def zone_rush_hour(df):
+    rush_hour_dic = {}
+    for zone in df['departure_zid'].unique():
+        zone_traffic = df.loc[(df['departure_zid'] == zone) | 
+                                               (df['arrival_zid'] == zone)].groupby(by=
+                                                                                    ['day', 'hour'])['customers_cnt'].sum().reset_index()
+        time_int_count = zone_traffic.loc[zone_traffic['customers_cnt'] > 
+                                          0.75 * zone_traffic['customers_cnt'].max()].groupby('hour').count().reset_index()
+        zone_rush_hour = np.array(time_int_count.loc[time_int_count['customers_cnt'] > 
+                                                     0.75 * time_int_count['customers_cnt'].max()]['hour'])
+        rush_hour_dic[zone] = zone_rush_hour
+    return rush_hour_dic
+
+def city_rush_hour(df):
+    city_traffic = df.groupby(by=['day', 'hour'])['customers_cnt'].sum().reset_index()
+    city_time_int_count = city_traffic.loc[city_traffic['customers_cnt'] > 
+                                           0.75 * city_traffic['customers_cnt'].max()].groupby('hour').count().reset_index()
+    city_rush_hour = np.array(city_time_int_count.loc[city_time_int_count['customers_cnt'] > 15]['hour'])
+    return city_rush_hour
+    
+#вычисляет наиболее загруженный момент в городе в течение месяца
+#получает на вход матрицу корреспонденции и возвращает пару (зона, серия)
+#в серии хранится информация о дне и времени, а также объеме прибытия и отправления
+def max_zone_traffic(df):
+    max_pressure = []
+    for zone in df['departure_zid'].unique():
+            zone_traffic = df.loc[(df['departure_zid'] == zone) | 
+                                                   (df['arrival_zid'] == zone)].groupby(by=
+                                                                                        ['day', 'hour'])['customers_cnt'].sum().reset_index()
+            df_zone_max_cnt = zone_traffic.loc[zone_traffic['customers_cnt'].idxmax()].to_frame().transpose()
+            df_zone_max_cnt['zone'] = pd.Series([zone], name='zone')
+            max_pressure.append(df_zone_max_cnt)
+    max_pressure_df = pd.concat(max_pressure).reset_index()
+    return max_pressure_df.loc[max_pressure_df['customers_cnt'].idxmax()]
+
+df_chunked = pd.read_csv('./Downloads/Data_mgtniip/Matrix.csv', sep=';', chunksize=1000000)
+chunk_list = []
+for chunk in df_chunked: 
+    ts = np.array(chunk['ts'])
+    chunk_days = [i[8:10] for i in ts]
+    chunk_hours = [i[11:13] + i[14:16] for i in ts]
+    chunk['day'] = chunk_days
+    chunk['hour'] = chunk_hours
+    chunk.drop(columns=['ts'], inplace=True)
+    chunk_list.append(chunk.astype('int32'))
+df_concat = pd.concat(chunk_list)
+
+df_general_morning = df_general.loc[df_general['hour'] < 1200]
+df_general_evening = df_general.loc[df_general['hour'] >= 1200]
+
+#находим час пик для каждой зоны утром
+#вычисляем наиболее загруженные временные интвервалы для каждой зоны и для каждого дня
+#если временной интервал часто бывает наиболее загруженным, то он попадает в список "час пик"
+rush_hour_dic = {}
+for zone in df_general_morning['departure_zid'].unique():
+    zone_trafic = df_general_morning.loc[(df_general_morning['departure_zid'] == zone) | 
+                                           (df_general_morning['arrival_zid'] == zone)].groupby(by=
+                                                                                               ['day', 'hour'])['customers_cnt'].sum().reset_index()
+    time_int_count = zone_trafic.loc[zone_trafic['customers_cnt'] > 0.75*zone_trafic['customers_cnt'].max()].groupby('hour').count().reset_index()
+    zone_rush_hour = np.array(time_int_count.loc[time_int_count['customers_cnt'] > 0.75 * time_int_count['customers_cnt'].max()]['hour'])
+    rush_hour_dic[zone] = zone_rush_hour
+    
